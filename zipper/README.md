@@ -1,1 +1,0 @@
-This is a simple spring batch process that reads Stuff and adds them to a zip archive with an index.

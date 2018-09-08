@@ -1,5 +1,0 @@
-h1. This is my title
-
-h2. this is my first chapter
-
-Hello, this is my first chapter...
