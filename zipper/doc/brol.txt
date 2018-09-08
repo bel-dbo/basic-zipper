@@ -1,0 +1,14 @@
+	<bean id="decompressRepo" class="batch.DecompressTasklet"
+		scope="step">
+		<property name="source"
+			value="#{jobParameters['repoResource']}" />
+		<property name="destination"
+			value="#{jobExecutionContext['tmpDir']}" />
+	</bean>
+
+	<bean id="compressRepo" class="batch.CompressTasklet" scope="step">
+		<property name="destination"
+			value="#{jobParameters['repoResource']}" />
+		<property name="source"
+			value="#{jobExecutionContext['tmpDir']}" />
+	</bean>

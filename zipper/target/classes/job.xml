@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:batch="http://www.springframework.org/schema/batch"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans-4.3.xsd
+	http://www.springframework.org/schema/batch 
+	http://www.springframework.org/schema/batch/spring-batch-3.0.xsd">
+	<job id="archiveStuff"
+		xmlns="http://www.springframework.org/schema/batch">
+		<step id="createTmpDir" next="multiAddItemsToRepo">
+			<tasklet ref="createDirTasklet" />
+		</step>
+		<!-- step id="decompressRepo" next="readWriteProducts"> <tasklet ref="decompressTasklet"/> 
+			</step -->
+		<step id="multiAddItemsToRepo" next="deleteTmpDir">
+			<partition step="addItemsToRepo"
+				partitioner="partitioner">
+				<handler grid-size="4" task-executor="taskExecutor" />
+			</partition>
+		</step>
+		<!-- step id="compressRepo"> <tasklet ref="compressTasklet"/> </step -->
+		<step id="deleteTmpDir">
+			<tasklet ref="deleteDirTasklet" />
+		</step>
+	</job>
+
+	<batch:step id="addItemsToRepo">
+		<batch:tasklet>
+			<batch:chunk reader="reader" processor="processor" writer="writer" commit-interval="500" />
+		</batch:tasklet>
+	</batch:step>
+
+	<bean id="partitioner" class="batch.MyPartitioner"/>
+
+	<bean id="createDirTasklet" class="batch.DirectoryTasklet">
+		<property name="action" value="CREATE_TMP" />
+	</bean>
+
+	<bean id="deleteDirTasklet" class="batch.DirectoryTasklet">
+		<property name="action" value="DELETE" />
+	</bean>
+
+	<bean id="reader" class="batch.MyListItemReader" scope="step">
+		<property name="listIndex" value="#{stepExecutionContext['listIndex']}" />
+		<property name="minIndex" value="#{stepExecutionContext['minIndex']}" />
+		<property name="maxIndex" value="#{stepExecutionContext['maxIndex']}" />
+	</bean>
+
+	<bean id="processor" class="batch.StuffProcessor" />
+	<bean id="writer" class="org.springframework.batch.item.support.CompositeItemWriter" scope="step">
+		<property name="delegates">
+			<list>
+				<ref bean="stuffWriter" />
+				<ref bean="stuffIndexWriter" />
+			</list>
+		</property>
+	</bean>
+
+	<bean id="stuffWriter" class="batch.StuffWriter" scope="step">
+		<property name="directory" value="#{jobExecutionContext['tmpDir']+'/repo/'}" />
+	</bean>
+
+	<bean id="stuffIndexWriter" class="org.springframework.batch.item.file.FlatFileItemWriter" scope="step">
+		<property name="resource" value="file:#{jobExecutionContext['tmpDir']+'/' + stepExecutionContext['fileName']}" />
+		<property name="appendAllowed" value="true" />
+		<property name="saveState" value="false"/>
+		<property name="lineAggregator">
+			<bean class="org.springframework.batch.item.file.transform.PassThroughLineAggregator" />
+		</property>
+	</bean>
+	<bean id="taskExecutor" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
+		<property name="corePoolSize" value="5" />
+		<property name="maxPoolSize" value="5" />
+	</bean>
+</beans>
